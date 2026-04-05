@@ -17,5 +17,21 @@
     v2: x <input type="text" id="x2" /> y <input type="text" id="y2" />
     <br>
     <input type="button" value="Draw" onclick="handleDrawEvent()" />
+    <br>
+    <br>
+    Operation: 
+    <select id="operation">
+      <option value="Add">Add</option>
+      <option value="Subtract">Subtract</option>
+      <option value="Multiply">Multiply</option>
+      <option value="Divide">Divide</option>
+      <option value="Angle Between">Angle Between</option>
+      <option value="Area">Area</option>
+      <option value="Magnitude">Magnitude</option>
+      <option value="Normalize">Normalize</option>
+    </select>
+    Scalar: <input type="text" id="scalar" />
+    <br>
+    <input type="button" value="Draw" onclick="handleDrawOperationEvent()" />
   </body>
 </html>
