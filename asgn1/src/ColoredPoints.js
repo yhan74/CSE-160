@@ -87,6 +87,7 @@ function addActionsForHtmlUI() {
   document.getElementById('green').onclick = function() { g_selectedColor = [0.0,1.0,0.0,1.0]; };
   document.getElementById('red').onclick   = function() { g_selectedColor = [1.0,0.0,0.0,1.0]; };
   document.getElementById('clearButton').onclick = function() { g_shapesList = []; renderAllShapes();};
+  document.getElementById('drawPicButton').onclick = function() { drawPicture(); };
 
   document.getElementById('pointButton').onclick = function() {g_selectedType=POINT};
   document.getElementById('triButton').onclick = function() {g_selectedType=TRIANGLE};
@@ -201,4 +202,82 @@ function sendTextToHTML(text, htmlID) {
     return;
   }
   htmlElm.innerHTML = text;
+}
+
+function drawPicture() {
+  // 20+ triangle coordinates
+  // blue lamppost
+  gl.uniform4f(u_FragColor, 0.0, 0.0, 1.0, 1.0); // blue bottom left
+  drawTriangle([-0.7, -0.9, -0.6, -0.9, -0.6, -0.75]);
+
+  gl.uniform4f(u_FragColor, 0.0, 0.0, 1.0, 1.0); // blue bottom right
+  drawTriangle([-0.4, -0.9, -0.5, -0.9, -0.5, -0.75]);
+
+  gl.uniform4f(u_FragColor, 0.0, 0.0, 1.0, 1.0); // blue middle long 1
+  drawTriangle([-0.6, -0.9, -0.6, -0.2, -0.5, -0.2]);
+
+  gl.uniform4f(u_FragColor, 0.0, 0.0, 1.0, 1.0); // blue middle long 2
+  drawTriangle([-0.5, -0.9, -0.6, -0.9, -0.5, -0.2]);
+
+  gl.uniform4f(u_FragColor, 0.0, 0.0, 1.0, 1.0); // blue top left 1
+  drawTriangle([-0.55, -0.2, -0.6, -0.2, -0.7, 0]);
+
+  gl.uniform4f(u_FragColor, 0.0, 0.0, 1.0, 1.0); // blue top left 2
+  drawTriangle([-0.7, 0, -0.75, 0, -0.6, -0.2]);
+
+  gl.uniform4f(u_FragColor, 0.0, 0.0, 1.0, 1.0); // blue top right 1
+  drawTriangle([-0.55, -0.2, -0.5, -0.2, -0.4, 0]);
+
+  gl.uniform4f(u_FragColor, 0.0, 0.0, 1.0, 1.0); // blue top right 2
+  drawTriangle([-0.35, 0, -0.4, 0, -0.5, -0.2]);
+
+  // yellow lamplight
+  gl.uniform4f(u_FragColor, 1.0, 1.0, 0.0, 1.0); // yellow top
+  drawTriangle([-0.7, 0.1, -0.55, 0.2, -0.4, 0.1]);
+
+  gl.uniform4f(u_FragColor, 1.0, 1.0, 0.0, 1.0); // yellow middle 1
+  drawTriangle([-0.7, 0.1, -0.4, 0.1, -0.7, 0]);
+
+  gl.uniform4f(u_FragColor, 1.0, 1.0, 0.0, 1.0); // yellow middle 2
+  drawTriangle([-0.7, 0, -0.4, 0.1, -0.4, 0]);
+
+  gl.uniform4f(u_FragColor, 1.0, 1.0, 0.0, 1.0); // yellow bottom
+  drawTriangle([-0.7, 0, -0.4, 0, -0.55, -0.2]);
+
+  // brown bench
+  gl.uniform4f(u_FragColor, 0.8, 0.5, 0.2, 1.0); // brown bottom left 1
+  drawTriangle([-0.15, -0.7, -0.15, -0.9, -0.05, -0.7]);
+
+  gl.uniform4f(u_FragColor, 0.8, 0.5, 0.2, 1.0); // brown bottom left 2
+  drawTriangle([-0.05, -0.9, -0.05, -0.7, -0.15, -0.9]);
+
+  gl.uniform4f(u_FragColor, 0.8, 0.5, 0.2, 1.0); // brown bottom right 1
+  drawTriangle([0.85, -0.9, 0.85, -0.7, 0.75, -0.7]);
+
+  gl.uniform4f(u_FragColor, 0.8, 0.5, 0.2, 1.0); // brown bottom right 2
+  drawTriangle([0.75, -0.9, 0.75, -0.7, 0.85, -0.9]);
+
+  gl.uniform4f(u_FragColor, 0.8, 0.5, 0.2, 1.0); // brown bottom middle 1
+  drawTriangle([-0.2, -0.7, -0.1, -0.6, 0.9, -0.7]);
+
+  gl.uniform4f(u_FragColor, 0.8, 0.5, 0.2, 1.0); // brown bottom middle 2
+  drawTriangle([-0.1, -0.6, 0.8, -0.6, 0.9, -0.7]);
+
+  gl.uniform4f(u_FragColor, 0.8, 0.5, 0.2, 1.0); // brown middle left 1
+  drawTriangle([0, -0.5, 0, -0.8, 0.05, -0.5]);
+
+  gl.uniform4f(u_FragColor, 0.8, 0.5, 0.2, 1.0); // brown middle left 2
+  drawTriangle([0, -0.8, 0.05, -0.8, 0.05, -0.5]);
+
+  gl.uniform4f(u_FragColor, 0.8, 0.5, 0.2, 1.0); // brown middle right 1
+  drawTriangle([0.65, -0.5, 0.65, -0.8, 0.7, -0.5]);
+
+  gl.uniform4f(u_FragColor, 0.8, 0.5, 0.2, 1.0); // brown middle right 2
+  drawTriangle([0.7, -0.5, 0.7, -0.8, 0.65, -0.8]);
+
+  gl.uniform4f(u_FragColor, 0.8, 0.5, 0.2, 1.0); // brown top 1
+  drawTriangle([-0.1, -0.35, -0.1, -0.5, 0.8, -0.35]);
+
+  gl.uniform4f(u_FragColor, 0.8, 0.5, 0.2, 1.0); // brown top 2
+  drawTriangle([-0.1, -0.5, 0.8, -0.5, 0.8, -0.35]);
 }
