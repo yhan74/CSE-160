@@ -280,4 +280,25 @@ function drawPicture() {
 
   gl.uniform4f(u_FragColor, 0.8, 0.5, 0.2, 1.0); // brown top 2
   drawTriangle([-0.1, -0.5, 0.8, -0.5, 0.8, -0.35]);
+
+  // red music note
+  gl.uniform4f(u_FragColor, 1.0, 0.0, 0.0, 1.0);
+
+  let x_center = 0.6;
+  let y_center = 0.1;
+  let size = 20.0;
+  let segments = 10;
+
+  var d = size/200.0;
+  let angleStep = 360/segments;
+  for(var angle = 0; angle < 360; angle=angle+angleStep) {
+    let vec1 = [Math.cos(angle*Math.PI/180)*d, Math.sin(angle*Math.PI/180)*d];
+    let vec2 = [Math.cos((angle+angleStep)*Math.PI/180)*d, Math.sin((angle+angleStep)*Math.PI/180)*d];
+    let pt1 = [x_center+vec1[0], y_center+vec1[1]];
+    let pt2 = [x_center+vec2[0], y_center+vec2[1]];
+    drawTriangle([x_center, y_center, pt1[0], pt1[1], pt2[0], pt2[1]] );
+  }
+
+  gl.uniform4f(u_FragColor, 1.0, 0.0, 0.0, 1.0); //long 1
+  drawTriangle([0.65, 0.4, 0.65, 0.1, 0.7, 0.1]);
 }
