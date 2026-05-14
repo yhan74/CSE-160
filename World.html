@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Blocky World Maze</title>
+</head>
+<body onload="main()">
+<canvas id="webgl" width="600" height="400">
+  Please use a browser that supports "canvas"
+</canvas>
+<p id="numdot">XXX</p>
+<button type="button" id="animationYellowOnButton">Animation ON</button>
+<button type="button" id="animationYellowOffButton">Animation OFF</button>
+<p>Camera Angle <input type="range" min="-180" max="180" value="0" class="slider" id="angleSlide"></p>
+<p>Head Angle <input type="range" min="0" max="100" value="50" class="slider" id="redSlide"></p>
+<p>Sheep Leg (1) <input type="range" min="-45" max="45" value="0" class="slider" id="yellowSlide"></p>
+<p>Sheep Leg (2) <input type="range" min="-45" max="45" value="0" class="slider" id="magentaSlide"></p>
+<p>Controls: W/A/S/D = Forward/Left/Back/Right &nbsp;|&nbsp; Q/E = Turn L/R &nbsp;|&nbsp; F = +Block &nbsp;|&nbsp; R = -Block</p>
+<script src="../lib/webgl-utils.js"></script>
+<script src="../lib/webgl-debug.js"></script>
+<script src="../lib/cuon-utils.js"></script>
+<script src="../lib/cuon-matrix.js"></script>
+<script src="Camera.js"></script>
+<script src="Triangle.js"></script>
+<script src="Cube.js"></script>
+<script src="World.js"></script>
+</body>
+</html>
