@@ -33,6 +33,9 @@ var FSHADER_SOURCE = `
   varying vec4 v_VertPos;
   uniform bool u_lightOn;
   uniform vec3 u_lightColor;
+  uniform vec3  u_spotlightAngle;
+  uniform bool  u_spotlightPos;
+  uniform float u_spotlightLine;
   void main() {
     if (u_normalOn) {
       gl_FragColor = vec4((v_Normal + 1.0) / 2.0, 1.0);
@@ -83,8 +86,15 @@ var FSHADER_SOURCE = `
     }
 
     if (u_lightOn) {
+      float spotlightVal = 1.0;
+      if (u_spotlightPos) {
+        vec3 FragVec = normalize(vec3(v_VertPos) - u_lightPos);
+        float cosVal = dot(FragVec, normalize(u_spotlightAngle));
+        spotlightVal = clamp((cosVal - u_spotlightLine) / 0.05,0.0,1.0);
+      }
       //gl_FragColor = vec4(specular+diffuse+ambient, 1.0);
-      gl_FragColor = vec4(u_lightColor * specular + diffuse + ambient, 1.0);
+      //gl_FragColor = vec4(u_lightColor * specular + diffuse + ambient, 1.0);
+      gl_FragColor = vec4(u_lightColor * specular * spotlightVal + diffuse * spotlightVal + ambient, 1.0);
     } else {
       //gl_FragColor = vec4(diffuse+ambient, 1.0);
       gl_FragColor = mix(u_FragColor, texColor, u_texColorWeight);
@@ -100,6 +110,7 @@ var canvas;
 var gl;
 var a_Position;
 var a_UV;
+var a_Normal;
 var u_FragColor;
 var u_ModelMatrix;
 var u_GlobalRotateMatrix;
@@ -113,6 +124,11 @@ var u_lightPos;
 var u_lightOn;
 var u_cameraPos;
 var u_lightColor;
+var u_spotlightPos;
+var u_spotlightAngle;
+var u_spotlightLine;
+var g_spotlightPos = false;
+var g_spotlightLine = 15.0;
 var g_camera;
 var g_textures = {0:null, 1:null, 2:null};
 var g_texturesReady = 0;
@@ -284,6 +300,9 @@ function connectVariablesToGLSL() {
   u_cameraPos = gl.getUniformLocation(gl.program, 'u_cameraPos');
   u_lightOn = gl.getUniformLocation(gl.program, 'u_lightOn');
   u_lightColor = gl.getUniformLocation(gl.program, 'u_lightColor');
+  u_spotlightPos = gl.getUniformLocation(gl.program, 'u_spotlightPos');
+  u_spotlightAngle = gl.getUniformLocation(gl.program, 'u_spotlightAngle');
+  u_spotlightLine = gl.getUniformLocation(gl.program, 'u_spotlightLine');
 
   if (a_Position < 0) {
     console.error('Failed to get a_Position');
@@ -430,6 +449,9 @@ function addActionsForHtmlUI() {
   document.getElementById('lightColorR').addEventListener('input', function() { g_lightColor[0] = this.value/255; });
   document.getElementById('lightColorG').addEventListener('input', function() { g_lightColor[1] = this.value/255; });
   document.getElementById('lightColorB').addEventListener('input', function() { g_lightColor[2] = this.value/255; });
+
+  document.getElementById('spotlightPos1') .onclick = function() { g_spotlightPos = true;  };
+  document.getElementById('spotlightPos2').onclick = function() { g_spotlightPos = false; }; 
 
   canvas.onmousemove = function(ev) { if(ev.buttons == 1) { click(ev) } };
 }
@@ -786,8 +808,23 @@ function renderScene() {
   var identityM = new Matrix4();
   gl.uniformMatrix4fv(u_GlobalRotateMatrix, false, identityM.elements);
 
-  gl.uniform3f(u_lightPos, g_lightPos[0], g_lightPos[1], g_lightPos[2]);
+  //gl.uniform3f(u_lightPos, g_lightPos[0], g_lightPos[1], g_lightPos[2]);
+  if (g_spotlightPos) {
+    gl.uniform3f(u_lightPos, g_camera.eye.elements[0],  g_camera.eye.elements[1], g_camera.eye.elements[2]);
+  } else {
+    gl.uniform3f(u_lightPos, g_lightPos[0], g_lightPos[1], g_lightPos[2]);
+  }
+
   gl.uniform3f(u_lightColor, g_lightColor[0], g_lightColor[1], g_lightColor[2]);
+  gl.uniform1i(u_spotlightPos, g_spotlightPos ? 1 : 0);
+  var eye = g_camera.eye.elements;
+  var at = g_camera.at.elements;
+  var x_pos = at[0] - eye[0];
+  var y_pos = at[1] - eye[1];
+  var z_pos = at[2] - eye[2];
+  var spotlightHeight = Math.sqrt(x_pos * x_pos + y_pos * y_pos + z_pos * z_pos);
+  gl.uniform3f(u_spotlightAngle, x_pos/spotlightHeight, y_pos/spotlightHeight, z_pos/spotlightHeight);
+  gl.uniform1f(u_spotlightLine, Math.cos(g_spotlightLine * Math.PI / 180.0));
   gl.uniform3f(u_cameraPos, g_camera.eye.elements[0], g_camera.eye.elements[1], g_camera.eye.elements[2]);
   //gl.uniform1i(u_lightOn, g_lightOn);
 
