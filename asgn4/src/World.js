@@ -32,6 +32,7 @@ var FSHADER_SOURCE = `
   uniform vec3 u_cameraPos;
   varying vec4 v_VertPos;
   uniform bool u_lightOn;
+  uniform vec3 u_lightColor;
   void main() {
     if (u_normalOn) {
       gl_FragColor = vec4((v_Normal + 1.0) / 2.0, 1.0);
@@ -73,7 +74,8 @@ var FSHADER_SOURCE = `
     // Specular
     float specular = pow(max(dot(E,R), 0.0),64.0) * 0.8;
 
-    vec3 diffuse = vec3(1.0,1.0,0.9) * vec3(gl_FragColor) * nDotL * 0.7;
+    //vec3 diffuse = vec3(1.0,1.0,0.9) * vec3(gl_FragColor) * nDotL * 0.7;
+    vec3 diffuse = u_lightColor * vec3(gl_FragColor) * nDotL * 0.7;
     vec3 ambient = vec3(gl_FragColor) * 0.2;
 
     if (u_whichTexture == -3) {
@@ -81,7 +83,8 @@ var FSHADER_SOURCE = `
     }
 
     if (u_lightOn) {
-      gl_FragColor = vec4(specular+diffuse+ambient, 1.0);
+      //gl_FragColor = vec4(specular+diffuse+ambient, 1.0);
+      gl_FragColor = vec4(u_lightColor * specular + diffuse + ambient, 1.0);
     } else {
       //gl_FragColor = vec4(diffuse+ambient, 1.0);
       gl_FragColor = mix(u_FragColor, texColor, u_texColorWeight);
@@ -109,6 +112,7 @@ var u_normalOn;
 var u_lightPos;
 var u_lightOn;
 var u_cameraPos;
+var u_lightColor;
 var g_camera;
 var g_textures = {0:null, 1:null, 2:null};
 var g_texturesReady = 0;
@@ -125,6 +129,7 @@ var g_animation = true;
 var g_normalOn = false; // normalOn, normalOff
 var g_lightPos = [0,1,-2];
 var g_lightOn = true;
+var g_lightColor = [1.0, 1.0, 0.9];
 
 //for the mini game (collecting sheep)
 var g_score = 0;
@@ -278,6 +283,7 @@ function connectVariablesToGLSL() {
   u_lightPos = gl.getUniformLocation(gl.program, 'u_lightPos');
   u_cameraPos = gl.getUniformLocation(gl.program, 'u_cameraPos');
   u_lightOn = gl.getUniformLocation(gl.program, 'u_lightOn');
+  u_lightColor = gl.getUniformLocation(gl.program, 'u_lightColor');
 
   if (a_Position < 0) {
     console.error('Failed to get a_Position');
@@ -420,6 +426,10 @@ function addActionsForHtmlUI() {
   document.getElementById('lightSlideX').addEventListener('mousemove', function(ev) {if(ev.buttons == 1) { g_lightPos[0] = this.value/100; renderScene();}});
   document.getElementById('lightSlideY').addEventListener('mousemove', function(ev) {if(ev.buttons == 1) { g_lightPos[1] = this.value/100; renderScene();}});
   document.getElementById('lightSlideZ').addEventListener('mousemove', function(ev) {if(ev.buttons == 1) { g_lightPos[2] = this.value/100; renderScene();}});
+
+  document.getElementById('lightColorR').addEventListener('input', function() { g_lightColor[0] = this.value/255; });
+  document.getElementById('lightColorG').addEventListener('input', function() { g_lightColor[1] = this.value/255; });
+  document.getElementById('lightColorB').addEventListener('input', function() { g_lightColor[2] = this.value/255; });
 
   canvas.onmousemove = function(ev) { if(ev.buttons == 1) { click(ev) } };
 }
@@ -777,6 +787,7 @@ function renderScene() {
   gl.uniformMatrix4fv(u_GlobalRotateMatrix, false, identityM.elements);
 
   gl.uniform3f(u_lightPos, g_lightPos[0], g_lightPos[1], g_lightPos[2]);
+  gl.uniform3f(u_lightColor, g_lightColor[0], g_lightColor[1], g_lightColor[2]);
   gl.uniform3f(u_cameraPos, g_camera.eye.elements[0], g_camera.eye.elements[1], g_camera.eye.elements[2]);
   //gl.uniform1i(u_lightOn, g_lightOn);
 
