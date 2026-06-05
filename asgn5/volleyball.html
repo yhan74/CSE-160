@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Volleyball Gym [Haikyu!]</title>
+
+<style>
+* {margin: 0; padding: 0; box-sizing: border-box;}
+body {overflow: hidden; background: #000; font-family: 'Segoe UI', sans-serif;}
+#gymCanvas {width: 100%; height: 100%; display: block;}
+#keyControls {position: absolute; top: 16px; left: 16px; color: #fff; background: rgba(0,0,0,0.55); padding: 12px 16px; border-radius: 8px; font-size: 14px; line-height: 1.6; pointer-events: none; backdrop-filter: blur(6px);}
+#keyControls strong {color: #f5a142; display: block; margin-bottom: 4px; font-size: 12px;}
+#scoreboard {position: absolute; top: 16px; right: 16px; color: #f5a142; background: rgba(0,0,0,0.6); padding: 12px 20px; border-radius: 8px; font-family: monospace; font-size: 18px; line-height: 1.6; backdrop-filter: blur(6px); pointer-events: none;}
+</style>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.163.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<canvas id="gymCanvas"></canvas>
+<div id="keyControls"> <strong>Volleyball Gym [Haikyu!] </strong> Left-drag mouse: Rotate right | Double-scroll: Zoom-in/out | Right-drag mouse: Rotate left <br> Press <b>SPACEBAR</b> to serve the volleyball and start rallying! </div>
+<div id="scoreboard">RALLY: 0 &nbsp;|&nbsp; SERVES: 0</div>
+
+<script type="module">
+import * as THREE from 'three';
+import {GLTFLoader}    from 'three/addons/loaders/GLTFLoader.js';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+import {OBJLoader} from 'three/addons/loaders/OBJLoader.js';
+import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
+
+
+const canvas = document.querySelector('#gymCanvas')
+const render = new THREE.WebGLRenderer({antialias: true, canvas});
+render.setPixelRatio(Math.min(devicePixelRatio, 2));
+render.shadowMap.enabled = true;
+render.shadowMap.type = THREE.PCFSoftShadowMap;
+render.toneMapping = THREE.ACESFilmicToneMapping;
+render.toneMappingExposure = 1.1;
+
+function RenderDisplaySize(render) {
+    const canvas = render.domElement;
+    const cwidth = canvas.clientWidth, cheight = canvas.clientHeight;
+    const modifySize = canvas.width !== cwidth || canvas.height !== cheight;
+    if (modifySize) {
+        render.setSize(cwidth, cheight, false);
+    }
+    return modifySize;
+}
+
+// const scene = new THREE.Scene();
+const three_scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(60, 2, 0.1, 500); //fov, aspect, near, far
+// camera.position.z = 2;
+camera.position.set(0, 14, 32);
+
+const orbitControls = new OrbitControls(camera, canvas);
+orbitControls.target.set(0,4,0);
+orbitControls.enableDamping = true;
+orbitControls.dampingFactor = 0.07;
+orbitControls.minDistance = 5;
+orbitControls.maxDistance = 80;
+orbitControls.maxPolarAngle = Math.PI;
+orbitControls.update();
+
+const skybox_load = new THREE.CubeTextureLoader();
+const skyboxTexture = skybox_load.load([ 'sky_cloud.jpg', 'sky_cloud.jpg', 'sky_cloud.jpg', 'sky_cloud.jpg', 'sky_cloud.jpg', 'sky_cloud.jpg']);
+three_scene.background = skyboxTexture;
+
+// adding extra light sources
+// ambient light
+three_scene.add(new THREE.AmbientLight(0x556688, 1.2));
+// directional light
+const d_light = new THREE.DirectionalLight(0xfff5e0, 2.5);
+d_light.position.set(-1, 30, 10);
+d_light.castShadow = true;
+Object.assign(d_light.shadow.camera, {near:0.1, far:150, left:-40, right:40, top:40, bottom:-40});
+d_light.shadow.mapSize.set(2048, 2048);
+three_scene.add(d_light);
+// hemisphere light
+three_scene.add(new THREE.HemisphereLight(0x99aaff, 0x443322, 0.6));
+// point light
+const p_light = new THREE.PointLight(0xffcc88, 3, 40, 2);
+p_light.position.set(0, 13, 0);
+p_light.castShadow = true;
+three_scene.add(p_light);
+// spotlight
+const spotlight = new THREE.SpotLight(0xffffff, 5, 35, Math.PI/7, 0.25, 1.5);
+spotlight.position.set(0,16,0);
+spotlight.target.position.set(0,2.5,0);
+spotlight.castShadow = true;
+three_scene.add(spotlight, spotlight.target);
+
+// Add textures
+function tileTexture(c1,c2,tiles=8) {
+    const size = 256;
+    const tileSize = size/ tiles;
+    const c = document.createElement('canvas');
+    c.width = size;
+    c.height = size;
+    const con = c.getContext('2d');
+    for (let row = 0; row < tiles; row++) {
+        for (let column = 0; column < tiles; column++) {
+            const evenCheck = (row + column) % 2 === 0;
+            if (evenCheck) {
+                con.fillStyle = c1;
+            } else {
+                con.fillStyle = c2;
+            }
+            con.fillRect(column * tileSize, row * tileSize, tileSize, tileSize);
+        }
+    }
+    const t_texture = new THREE.CanvasTexture(c);
+    t_texture.colorSpace = THREE.SRGBColorSpace;
+    t_texture.wrapS = THREE.RepeatWrapping;
+    t_texture.wrapT = THREE.RepeatWrapping;
+    return t_texture;
+}
+function woodTexture() {
+    const c = document.createElement('canvas');
+    c.width = 512;
+    c.height = 512;
+    const con = c.getContext('2d');
+    con.fillStyle = '#c8882a';
+    con.fillRect(0,0,512,512);
+    for (let i = 0; i < 80;i++) {
+        const y = Math.random() * 512;
+        const r = Math.floor(100+Math.random() * 60);
+        const g = Math.floor(50 + Math.random() * 30);
+        const b = 0;
+        const a = 0.18;
+        con.strokeStyle = 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
+        const c1x = 128;
+        const c1y = y + (Math.random() - 0.5) * 12;
+        const c2x = 384;
+        const c2y = y + (Math.random() - 0.5) * 12;
+
+        con.lineWidth = 1 + Math.random() * 2;
+        con.beginPath();
+        con.moveTo(0,y);
+        con.bezierCurveTo(c1x, c1y, c2x, c2y, 512, y);
+        con.stroke();
+    }
+    const w_texture = new THREE.CanvasTexture(c);
+    w_texture.colorSpace = THREE.SRGBColorSpace;
+    w_texture.wrapS = THREE.RepeatWrapping;
+    w_texture.wrapT = THREE.RepeatWrapping;
+    w_texture.repeat.set(4,1);
+    return w_texture;
+}
+function wallTexture() {
+    const c = document.createElement('canvas');
+    c.width = 256;
+    c.height = 256;
+    const con = c.getContext('2d');
+    con.fillStyle = '#d4c8b0';
+    con.fillRect(0,0,256,256);
+    con.strokeStyle = '#b0a890';
+    con.lineWidth = 1.5;
+    const brickHeight = 32;
+    const brickWidth = 64;
+    const numRows = 256 / brickHeight;
+    const numColumns = 256 / brickWidth;
+    for (let row = 0; row < numRows; row++) {
+        const oddCheck = row % 2 !== 0;
+        const offset = oddCheck ? brickWidth / 2 : 0;
+        for (let column = -1; column < numColumns + 1; column++) {
+            const x = column * brickWidth + offset;
+            const y = row * brickHeight;
+            con.strokeRect(x, y, brickWidth, brickHeight);
+        }
+    }
+    const wall_texture = new THREE.CanvasTexture(c);
+    wall_texture.colorSpace = THREE.SRGBColorSpace;
+    wall_texture.wrapS = THREE.RepeatWrapping;
+    wall_texture.wrapT = THREE.RepeatWrapping;
+    wall_texture.repeat.set(6,3);
+    return wall_texture;
+}
+function metalTexture() {
+    const c = document.createElement('canvas');
+    c.width = 128;
+    c.height = 128;
+    const con = c.getContext('2d');
+    const g = con.createLinearGradient(0,0,128,0);
+    g.addColorStop(0,'#888');
+    g.addColorStop(0.4,'#ddd');
+    g.addColorStop(0.6,'#aaa');
+    g.addColorStop(1,'#888');
+    con.fillStyle = g;
+    con.fillRect(0,0,128,128);
+    const m_texture = new THREE.CanvasTexture(c);
+    m_texture.colorSpace = THREE.SRGBColorSpace;
+    return m_texture;
+}
+function matTexture() {
+    const c = document.createElement('canvas');
+    c.width = 256;
+    c.height = 256;
+    const con = c.getContext('2d');
+    con.fillStyle = '#1a6b3a';
+    con.fillRect(0,0,256,256);
+    const numDots = 5000;
+    for (let i = 0; i < numDots; i++) {
+        const dx = Math.random() * 256;
+        const dy = Math.random() * 256;
+        const a = Math.random() * 0.2;
+        con.fillStyle = 'rgba(0, 0, 0, ' + a + ')';
+        con.fillRect(dx,dy,1,1);
+    }
+    const mat_texture = new THREE.CanvasTexture(c);
+    mat_texture.colorSpace = THREE.SRGBColorSpace;
+    mat_texture.wrapS = THREE.RepeatWrapping;
+    mat_texture.wrapT = THREE.RepeatWrapping;
+    mat_texture.repeat.set(3,3);
+    return mat_texture;
+}
+function vballTexture() {
+    const c = document.createElement('canvas');
+    c.width = 256;
+    c.height = 256;
+    const con = c.getContext('2d');
+    con.fillStyle = '#f0ede8';
+    con.fillRect(0,0,256,256);
+    const pl = [['#1a4fa0',0,0,256,128], ['#c0290a',0,128,256,128]];
+    pl.forEach(([c,x,y,w,h])=>{
+        con.fillStyle=c;
+        con.globalAlpha=0.18;
+        con.fillRect(x,y,w,h);
+        con.globalAlpha=1;
+    });
+    con.strokeStyle = '#333';
+    con.lineWidth = 3;
+    con.beginPath();
+    con.moveTo(0,128);
+    con.lineTo(256,128);
+    con.stroke();
+    con.beginPath();
+    con.moveTo(128,0);
+    con.lineTo(128,256);
+    con.stroke();
+    [[128,0], [0,128], [256,128], [128,256]].forEach(([cx,cy])=>{
+        con.beginPath();
+        con.arc(cx,cy,90,0,Math.PI*2);
+        con.strokeStyle = '#555';
+        con.lineWidth = 2;
+        con.stroke();
+    });
+    const vball_texture = new THREE.CanvasTexture(c);
+    vball_texture.colorSpace = THREE.SRGBColorSpace;
+    return vball_texture;
+}
+
+const wood_t = woodTexture();
+const wall_t = wallTexture();
+const metal_t = metalTexture();
+const mat_t = matTexture();
+const vball_t = vballTexture();
+const floor_m = new THREE.MeshStandardMaterial({map: wood_t, roughness:0.4, metalness:0.05});
+const ceiling_m = new THREE.MeshStandardMaterial({color:0xf0ede4, roughness:0.9});
+const wall_m = new THREE.MeshStandardMaterial({map: wall_t, color: 0xff6600, roughness: 0.85});
+const metal_m = new THREE.MeshStandardMaterial({map: metal_t, roughness: 0.3, metalness: 0.8});
+const red_m = new THREE.MeshStandardMaterial({color:0xcc2200, roughness:0.6});
+const blue_m = new THREE.MeshStandardMaterial({color:0x1144cc, roughness:0.6});
+const yellow_m = new THREE.MeshStandardMaterial({color: 0xf5c842, roughness: 0.5});
+const white_m = new THREE.MeshStandardMaterial({color:0xfafafa, roughness:0.7});
+const mat_m = new THREE.MeshStandardMaterial({map: mat_t, roughness:0.9});
+const rope_m = new THREE.MeshStandardMaterial({color:0xd4a050, roughness: 0.9});
+const net_m = new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.8, wireframe:true});
+
+// Create a simple Three.js scene (animated cubes)
+function animatedCubes(color, letter) {
+    const c = document.createElement('canvas');
+    c.width = 64;
+    c.height = 64;
+    const con = c.getContext('2d');
+    con.fillStyle = color; 
+    con.fillRect(0,0,64,64);
+    con.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+    con.lineWidth = 4;
+    con.strokeRect(4, 4, 56, 56);
+    con.fillStyle = '#fff';
+    con.font = 'bold 25px sans-serif';
+    con.textAlign = 'center';
+    con.fillText(letter, 32, 42);
+    const cube_texture = new THREE.CanvasTexture(c);
+    cube_texture.colorSpace = THREE.SRGBColorSpace;
+    return cube_texture;
+}
+const cube_location = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+const cube_rgb = ['#ff6600','#111111','#ffffff','#ff6600','#111111','#ffffff', '#ff6600'];
+const cube_letters = ['H', 'A', 'I', 'K', 'Y', 'U', 'U'];
+const create_cubes = cube_rgb.map( (color, i) => {
+    const cube_m = cube_rgb.map( (c2, i2) => new THREE.MeshStandardMaterial( {map: animatedCubes(c2, cube_letters[i2]) }));
+    const cube = new THREE.Mesh(cube_location, cube_m);
+    cube.position.set(-10.5 + i*1.4, 12.5, -16);
+    cube.castShadow = true; 
+    three_scene.add(cube); 
+    return cube;
+});
+
+// const fov = 75;
+// const aspect = 2;
+// const near = 0.1;
+// const far = 5;
+// const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
+
+// gym + volleyball court
+function addGym(x_pos, y_pos, z_pos, width, height, depth, material) {
+    const gym = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), material);
+    gym.position.set(x_pos, y_pos, z_pos);
+    gym.castShadow = true;
+    gym.receiveShadow = true;
+    three_scene.add(gym);
+    return gym;
+}
+addGym(0, -0.2, 0, 40, 0.4, 34, floor_m);
+addGym(0, 14, 0, 40, 0.4, 34, ceiling_m);
+addGym(0, 7, -17, 40, 14, 0.4, wall_m);
+addGym(0, 7, 17, 40, 14, 0.4, wall_m);
+addGym(-20, 7, 0, 0.4, 14, 34, wall_m);
+addGym(20, 7, 0, 0.4, 14, 34, wall_m);
+
+//add gym door
+addGym(0, 2, 17.2, 2.2, 4.2, 0.15, new THREE.MeshStandardMaterial({color: 0x5c3a1e, roughness: 0.7}));
+addGym(0, 2, 17.3, 1.8, 4.0, 0.1, new THREE.MeshStandardMaterial({color: 0x8B5e3c, roughness: 0.6}));
+const door_handle = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 10), new THREE.MeshStandardMaterial({color: 0xf5c842, roughness: 0.3, metalness: 0.8}));
+door_handle.position.set(0.7, 1.8, 17.4);
+three_scene.add(door_handle);
+
+//add gym windows
+addGym(-8, 8, -16.8, 3.5, 2.5, 0.15, new THREE.MeshStandardMaterial({color: 0x5c3a1e, roughness: 0.7}));
+addGym(-8, 8, -16.7, 3.0, 2.0, 0.1, new THREE.MeshStandardMaterial({color: 0x88bbff, roughness: 0.1, transparent: true, opacity: 0.4}));
+addGym(8, 8, -16.8, 3.5, 2.5, 0.15, new THREE.MeshStandardMaterial({color: 0x5c3a1e, roughness: 0.7}));
+addGym(8, 8, -16.7, 3.0, 2.0, 0.1, new THREE.MeshStandardMaterial({color: 0x88bbff, roughness: 0.1, transparent: true, opacity: 0.4}));
+addGym(-8, 8, -16.65, 3.0, 0.08, 0.05, new THREE.MeshStandardMaterial({color: 0x5c3a1e}));
+addGym(8, 8, -16.65, 3.0, 0.08, 0.05, new THREE.MeshStandardMaterial({color: 0x5c3a1e}));
+addGym(-8, 8, -16.65, 0.08, 2.0, 0.05, new THREE.MeshStandardMaterial({color: 0x5c3a1e}));
+addGym(8, 8, -16.65, 0.08, 2.0, 0.05, new THREE.MeshStandardMaterial({color: 0x5c3a1e}));
+
+// Haikyuu logo added to the front of the building
+const logo_load = new THREE.TextureLoader();
+const logo_t = logo_load.load('haikyuulogo.png');
+logo_t.colorSpace = THREE.SRGBColorSpace;
+const logo_m = new THREE.Mesh(new THREE.BoxGeometry(6, 3, 0.05), new THREE.MeshStandardMaterial({map: logo_t, roughness: 0.5, transparent: true, alphaTest: 0.1}));
+logo_m.position.set(0, 10, 17.3);
+three_scene.add(logo_m);
+
+function whiteTapeLine(x_pos, z_pos, width, depth) {
+    const tape_m = new THREE.Mesh(new THREE.BoxGeometry(width, 0.02, depth), new THREE.MeshStandardMaterial({color: 0xffffff}));
+    tape_m.position.set(x_pos, 0.01, z_pos);
+    three_scene.add(tape_m);
+}
+whiteTapeLine(0, 0, 0.12, 34); //net line
+whiteTapeLine(0, 8.5, 18, 0.12); // far end
+whiteTapeLine(0, -8.5, 18, 0.12); // near end
+whiteTapeLine(9, 0, 0.12, 17); // right sideline
+whiteTapeLine(-9, 0, 0.12, 17); // left sideline
+whiteTapeLine(0, 3, 18, 0.12);
+whiteTapeLine(0, -3, 18, 0.12);
+
+const NET_WIDTH = 9;
+const NET_TWIDTH = 9;
+const NET_HEIGHT = 3;
+
+// net post cylinders
+[-NET_TWIDTH/2 - 0.3, NET_TWIDTH/2 + 0.3].forEach(x => {
+    const net_post = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, NET_HEIGHT + 0.3, 14), metal_m);
+    net_post.position.set(x, (NET_HEIGHT + 0.3)/2, 0);
+    net_post.castShadow = true;
+    three_scene.add(net_post);
+    addGym(x, 0.06, 0, 0.5, 0.12, 0.5, metal_m);
+});
+
+// create the net material
+const net_grid = new THREE.Group();
+const columns = 18;
+const rows = 8;
+for (let c = 0; c <= columns; c++) {
+    const i = -NET_TWIDTH/2 + c * (NET_TWIDTH/columns);
+    const j = new THREE.Mesh(new THREE.BoxGeometry(0.018, NET_HEIGHT, 0.018), white_m);
+    j.position.set(i, NET_HEIGHT/2, 0);
+    net_grid.add(j); //the net bars
+}
+for (let r = 0; r <= rows; r++) {
+    const x = (r/rows) * NET_HEIGHT;
+    const y = new THREE.Mesh(new THREE.BoxGeometry(NET_TWIDTH, 0.018, 0.018), white_m);
+    y.position.set(0, x, 0);
+    net_grid.add(y);
+}
+const top_tapeline = new THREE.Mesh(new THREE.BoxGeometry(NET_TWIDTH + 0.05, 0.1, 0.05), white_m);
+top_tapeline.position.set(0, NET_HEIGHT + 0.05, 0);
+net_grid.add(top_tapeline);
+
+// net red-white antenna cylinders
+[-NET_TWIDTH/2, NET_TWIDTH/2].forEach(x => {
+    for (let a = 0; a < 8; a++) {
+        const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.25, 8), 
+        new THREE.MeshStandardMaterial({color: a%2 === 0 ? 0xcc0000 : 0xffffff})); //red or white
+        antenna.position.set(x, NET_HEIGHT + 0.125 + a * 0.25, 0);
+        net_grid.add(antenna);
+    }
+});
+three_scene.add(net_grid); //completed nets
+
+// referee spot (by net center, need cube box, cylinder)
+{
+    const referee_spot = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 1.5, 10), metal_m);
+    referee_spot.position.set(10, 0.75, 0);
+    three_scene.add(referee_spot);
+    addGym(10, 1.7, 0, 0.5, 0.3, 0.5, new THREE.MeshStandardMaterial({color: 0x333333}));
+    [0.4, 0.9, 1.3].forEach(y => {
+        const ladder = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.4, 8), metal_m);
+        ladder.rotation.z = Math.PI/2; 
+        ladder.position.set(10, y, 0); 
+        three_scene.add(ladder);
+    });
+}
+
+// scoreboard (visual)
+[-4, 4].forEach(z => {
+    addGym(0, 10.5, z * -4, 2.2, 1.2, 0.12, new THREE.MeshStandardMaterial({color: 0x111111}));
+    addGym(0, 10.5, z * -4 + Math.sign(z) * -0.07, 2.0, 1.0, 0.05, new THREE.MeshStandardMaterial({color: 0x001a00, emissive: 0x003300}));
+});
+
+// volleyball cart (cube box cart, ball spheres)
+addGym(12, 0.7, 8, 1.2, 1.2, 1.2, new THREE.MeshStandardMaterial({color: 0xaaaaaa, roughness: 0.5, wireframe: true}));
+[[12.3, 0.5, 8], [11.7, 0.5, 8], [12, 0.5, 8.3], [12, 0.9, 8]].forEach(([x,y,z]) => {
+    const vball_sphere = new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 14), new THREE.MeshStandardMaterial({map: vball_t, roughness:0.5}));
+    vball_sphere.position.set(x, y, z);
+    vball_sphere.castShadow = true;
+    three_scene.add(vball_sphere);
+});
+[[-0.55, -0.55], [0.55, -0.55], [-0.55, 0.55], [0.55, 0.55]].forEach(([x2,z2]) => {
+    const cart_wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.08, 12), new THREE.MeshStandardMaterial({color: 0x222222}));
+    cart_wheel.rotation.z = Math.PI/2;
+    cart_wheel.position.set(12 + x2, 0.12, 8 + z2); 
+    three_scene.add(cart_wheel);
+});
+
+// player benches on the sidelines
+[-14, 14].forEach((x, i) => {
+    const b = i === 0 ? -5 : 5;
+    addGym(x, 0.4, b, 3.5, 0.15, 0.6, new THREE.MeshStandardMaterial({color: 0x885533,roughness: 0.6}));
+    [-1.4, -0.5, 0.5, 1.4].forEach(z2 => {
+        const bench_leg = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.4, 8), metal_m);
+        bench_leg.position.set(x, 0.2, b + z2/3);
+        three_scene.add(bench_leg);
+    });
+});
+
+// wall scoreboard (big)
+addGym(0, 11, -16.7, 7, 2.5, 0.15, new THREE.MeshStandardMaterial({color: 0x111111}));
+addGym(0, 11, -16.62, 6.4, 1.9, 0.05, new THREE.MeshStandardMaterial({color: 0x001a00, emissive: 0x003300}));
+
+// ceiling light (visual)
+for (let l = -3; l <= 3; l += 2) {
+    const ceiling_light = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.12, 1.2), new THREE.MeshStandardMaterial({color: 0xfff9e0, emissive: 0xfff5c0, emissiveIntensity: 0.6}));
+    ceiling_light.position.set(l * 3, 13.8, 0);
+    three_scene.add(ceiling_light);
+
+    const lightbulb = new THREE.PointLight(0xfff5c0, 4, 20, 2);
+    lightbulb.position.set(l * 3, 13.5, 0);
+    three_scene.add(lightbulb);
+}
+
+// wall cylinders
+[-12, -4, 4, 12].forEach(z => [-19, 19].forEach( x => {
+    const column = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.35, 14, 16), new THREE.MeshStandardMaterial({color: 0xd8cfc0, roughness: 0.8}));
+    column.position.set(x, 7, z);
+    column.castShadow = true;
+    three_scene.add(column);
+}));
+
+// add a mat
+addGym(15, 0.06, 0, 4, 0.12, 6, mat_m);
+
+// Add a custom 3D model here --> female volleyball player
+// the downloaded .mtl file was blank, so I mapped vball_t for texture
+const obj_loader = new OBJLoader();
+obj_loader.load(
+    '15704_FemaleBeachVolleyball_Serving_V1.obj',
+    function(object) {
+        object.traverse(function(child) {
+            if (child.isMesh) {
+                child.material = new THREE.MeshStandardMaterial({map: vball_t, roughness: 0.8, metalness: 0.1});
+                child.castShadow = true;
+                child.receiveShadow = true;
+            }
+        });
+        object.position.set(5, 0, 5);
+        object.rotation.x = Math.PI / 2;
+        object.rotation.y = Math.PI;
+        object.position.set(5, 0, 14);
+        object.scale.set(1, 1, 1);
+        three_scene.add(object);
+    }
+);
+
+// volleyball
+const volleyball = new THREE.Mesh(
+    new THREE.SphereGeometry(0.21,24,24),
+    new THREE.MeshStandardMaterial({map: vball_t, roughness:0.6})
+);
+volleyball.castShadow = true;
+three_scene.add(volleyball);
+
+// (1) serve volleyball (2) rally over net game
+const scorekeep = document.querySelector('#scoreboard');
+let serve_count = 0;
+let rally_count = 0;
+const WAITING = 0;
+const SERVING = 1;
+const RALLYING = 2;
+const BOUNCING = 3;
+const SERVE_BEGIN = {x: 0, y: 1.0, z: 6};
+const SERVE_HIT = {x: (Math.random() - .5) *6, y: 0, z: -4};
+const RALLEY_BACK  = {x: (Math.random() - .5) * 6, y: 0, z: 5};
+let vballCondition = WAITING;
+let vballT = 0;
+let vballWaiting = 1.0;
+let vballY = 0;
+//let vball = 0;
+
+function ballpassArc(start, end, arc_top, t) {
+    return new THREE.Vector3(start.x + (end.x - start.x) * t, start.y + (end.y - start.y) * t + arc_top * 4 * t * (1-t), start.z + (end.z - start.z) * t);
+}
+let arcUp = {...SERVE_BEGIN}, arcDown = {...SERVE_HIT};
+let arcHighestPt = 3.2;
+
+volleyball.position.set(SERVE_BEGIN.x, SERVE_BEGIN.y, SERVE_BEGIN.z);
+
+window.addEventListener('keydown', e => {
+    if (e.code === 'Space' && vballCondition === WAITING) {
+        vballCondition = SERVING;
+        vballT = 0;
+        arcUp = {x: 0, y: 1.0, z: 6};
+        arcDown = {x: (Math.random() - .5) * 6, y: 0,z: -4};
+        arcHighestPt = 3.2 + Math.random() * 0.8;
+        serve_count++;
+        e.preventDefault();
+    }
+});
+
+/*function updateCamera() {
+  camera.updateProjectionMatrix();
+}
+ 
+const gui = new GUI();
+gui.add(camera, 'fov', 1, 180).onChange(updateCamera);
+const minMaxGUIHelper = new MinMaxGUIHelper(camera, 'near', 'far', 0.1);
+gui.add(minMaxGUIHelper, 'min', 0.1, 50, 0.1).name('near').onChange(updateCamera);
+gui.add(minMaxGUIHelper, 'max', 0.1, 50, 0.1).name('far').onChange(updateCamera);*/
+
+// for the WOW feature: volleyball "match"
+function vballChangePos() {
+    if (vballCondition === WAITING) {
+        vballY -= 0.006;
+        vballWaiting += vballY;
+        if (vballWaiting < 1.0) {
+            vballWaiting = 1.0;
+            vballY = Math.abs(vballY) * 0.55;
+        }
+        volleyball.position.set(arcUp.x, vballWaiting, arcUp.z);
+        volleyball.rotation.x += 0.005;
+    } else if (vballCondition === SERVING) {
+        vballT += 0.016;
+        const posit = ballpassArc(arcUp, arcDown, arcHighestPt, Math.min(vballT, 1));
+        volleyball.position.copy(posit);
+        volleyball.rotation.x += 0.12;
+        volleyball.rotation.y += 0.06;
+        if (vballT >= 1) {
+            rally_count += 1;
+            vballCondition = BOUNCING;
+            vballT = 0;
+            vballWaiting = 0.0;
+            vballY = 0.18;
+        }
+    } else if (vballCondition === BOUNCING) {
+        vballT += 0.016;
+        vballY -= 0.022;
+        vballWaiting += vballY;
+        volleyball.position.y = Math.max(0.21, arcDown.y + vballWaiting);
+        volleyball.rotation.x += 0.04;
+        if (vballWaiting <= 0.0 && vballT > 0.2) {
+            vballCondition = RALLYING;
+            vballT = 0;
+            arcUp = {...arcDown};
+            arcDown = {x: (Math.random() - 0.5) * 6, y: 0, z: 5.5};
+            arcHighestPt = 4.8 + Math.random() * 0.8;
+            vballWaiting = 0;
+            vballY = 0;
+        }
+    } else if (vballCondition === RALLYING) {
+        vballT += 0.016;
+        const posit = ballpassArc(arcUp, arcDown, arcHighestPt, Math.min(vballT, 1));
+        volleyball.position.copy(posit);
+        volleyball.rotation.x += 0.1;
+        volleyball.rotation.y += 0.05;
+        if (vballT >= 1) {
+            rally_count += 1;
+            vballCondition = WAITING;
+            arcUp = {x: arcDown.x, y: 1.0, z: arcDown.z};
+            vballWaiting = 1.0;
+            vballY = 0;
+        }
+    }
+    scorekeep.textContent = 'RALLY: ' + rally_count + ' | SERVES: ' + serve_count;
+}
+
+function timeRender(time) {
+    time *= 0.001;
+    //  resizeRendererToDisplaySize(renderer);
+    if (RenderDisplaySize(render)) {
+        camera.aspect = canvas.clientWidth / canvas.clientHeight;
+        camera.updateProjectionMatrix();
+    }
+    create_cubes.forEach((cube, x2)=>{
+        const speed = 1 + x2 * 0.1;
+        const rotation = time * speed;
+        cube.rotation.x= rotation; 
+        cube.rotation.y= rotation;
+        cube.position.y= 12.5 + Math.sin(time * 1.5 + x2 * 1.2) * 0.18;
+    });
+    net_grid.rotation.z = Math.sin(time * 0.7) * 0.005;
+    vballChangePos(); //volleyball current changing position during game
+    orbitControls.update();
+    render.render(three_scene, camera);
+    requestAnimationFrame(timeRender);
+}
+requestAnimationFrame(timeRender);
+
+/*
+class MinMaxGUIHelper {
+  constructor(obj, minProp, maxProp, minDif) {
+    this.obj = obj;
+    this.minProp = minProp;
+    this.maxProp = maxProp;
+    this.minDif = minDif;
+  }
+  get min() {
+    return this.obj[this.minProp];
+  }
+  set min(v) {
+    this.obj[this.minProp] = v;
+    this.obj[this.maxProp] = Math.max(this.obj[this.maxProp], v + this.minDif);
+  }
+  get max() {
+    return this.obj[this.maxProp];
+  }
+  set max(v) {
+    this.obj[this.maxProp] = v;
+    this.min = this.min;  // this will call the min setter
+  }
+}
+*/
+
+</script>
+</body>
+</html>
+
